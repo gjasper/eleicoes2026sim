@@ -1,0 +1,30 @@
+lets use the data at 
+
+data (in the same directory as this prompt)
+
+to modify the model
+
+each entry in the file is constant
+
+the sum of all variable starting with "1_" should be equal to the sum of variables starting with "2_"
+
+we should have a variable for each pair of 1_ variable with a 2_ variable, these will model transtitions
+such that they model for every 2_ constant a relation like this example "2_FB == 
+
+2_FB == SUM (
+    TRANS_FROM_1_FB_TO_2_FB
+    TRANS_FROM_1_L_TO_2_FB
+    TRANS_FROM_1_EAC_TO_2_FB
+    TRANS_FROM_1_RS_TO_2_FB 
+    TRANS_FROM_1_RC_TO_2_FB 
+    TRANS_FROM_1_Z_TO_2_FB
+    TRANS_FROM_1_S_TO_2_FB
+    TRANS_FROM_1_HD_TO_2_FB 
+    TRANS_FROM_1_CB_TO_2_FB 
+    TRANS_FROM_1_EC_TO_2_FB 
+    TRANS_FROM_1_VWG_TO_2_FB
+    TRANS_FROM_1_RCP_TO_2_FB
+    TRANS_FROM_1_B_TO_2_FB
+    TRANS_FROM_1_N_TO_2_FB
+    TRANS_FROM_1_A_TO_2_FB
+)

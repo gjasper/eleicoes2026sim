@@ -1,0 +1,16 @@
+lets create summarizing variables
+
+1_EAC
+1_RS 
+1_RC 
+1_Z
+1_S
+1_HD 
+1_CB 
+1_EC 
+1_VWG
+1_RCP
+
+assume there is an accumulated total for the variable above called "1_O"
+
+at the end of the script, instead of showing all of the above, should only transions coming out of "l_0"
