@@ -21,10 +21,20 @@ const DEFAULT_MINIMUM_FRACTIONS = {
 };
 
 function createDefaultLimits() {
-  return Object.fromEntries(Object.entries(DEFAULT_MINIMUM_FRACTIONS).map(([group, [numerator, denominator]]) => [
-    transitionKey(group, group, 'min'),
-    Math.floor((numerator * DESTINATION_TOTALS[group]) / denominator),
-  ]));
+  const limits = Object.fromEntries(DISPLAY_SOURCES.flatMap((source) =>
+    DISPLAY_DESTINATIONS.map((destination) => [
+      transitionKey(source, destination, 'min'),
+      Math.ceil(Math.min(SOURCE_TOTALS[source], DESTINATION_TOTALS[destination]) / 100),
+    ]),
+  ));
+
+  for (const [group, [numerator, denominator]] of Object.entries(DEFAULT_MINIMUM_FRACTIONS)) {
+    limits[transitionKey(group, group, 'min')] = Math.floor(
+      (numerator * DESTINATION_TOTALS[group]) / denominator,
+    );
+  }
+
+  return limits;
 }
 
 const state = {
@@ -37,7 +47,7 @@ const state = {
   defaultNoteDismissed: false,
   constraintNotice: '',
   busy: false,
-  message: 'Preparando o solucionador CP-SAT em WebAssembly...',
+  message: 'Preparando a simulação...',
   messageType: 'working',
   progress: 0,
   progressTotal: 1,
@@ -155,7 +165,7 @@ function renderDefaultExplanation() {
 
   return `
     <aside class="default-explanation" aria-label="Valores iniciais da simulação">
-      <p>A simulação começa com alguns valores previamente escolhidos.<br>Por exemplo: Flávio Bolsonaro recebe no segundo turno no mínimo 80% dos votos que recebeu no primeiro. Você pode mudar esse e quaisquer outros valores como desejar.</p>
+      <p>A simulação começa com alguns valores previamente escolhidos.<br>Por exemplo: Flávio Bolsonaro recebe no segundo turno no mínimo 80% dos votos que recebeu no primeiro. Cada transferência também tem um mínimo de 1% do menor total entre origem e destino. Você pode mudar esses e quaisquer outros valores como desejar.</p>
       <button class="default-explanation-close" type="button" aria-label="Fechar informação">×</button>
     </aside>`;
 }
@@ -185,8 +195,8 @@ function renderTransitionRow(source, destination) {
       <div class="range-controls">
         <div class="range-control dual-control">
           <div class="range-label">
-            <span class="range-endpoint"><span>Mínimo</span><strong id="value-${source}-${destination}-min">${formatAmount(selectedMin)}</strong><span class="constraint-state ${minManual ? 'is-manual' : ''}">${minManual ? 'Fixo' : 'Auto'}</span></span>
-            <span class="range-endpoint"><span>Máximo</span><strong id="value-${source}-${destination}-max">${formatAmount(selectedMax)}</strong><span class="constraint-state ${maxManual ? 'is-manual' : ''}">${maxManual ? 'Fixo' : 'Auto'}</span></span>
+            <span class="range-endpoint"><span>Mínimo</span><strong id="value-${source}-${destination}-min">${formatAmount(selectedMin)}</strong><span class="constraint-state ${minManual ? 'is-manual' : ''}">${minManual ? 'Escolhido' : 'Auto'}</span></span>
+            <span class="range-endpoint"><span>Máximo</span><strong id="value-${source}-${destination}-max">${formatAmount(selectedMax)}</strong><span class="constraint-state ${maxManual ? 'is-manual' : ''}">${maxManual ? 'Escolhido' : 'Auto'}</span></span>
           </div>
           <div class="dual-slider" style="--range-start: ${rangeStart}%; --range-end: ${rangeEnd}%">
             <span class="dual-track" aria-hidden="true"></span>
@@ -238,7 +248,8 @@ function renderSolutions() {
     </section>`;
 }
 
-function render() {
+function render(preserveView = {}) {
+  const scrollY = preserveView.scrollY ?? window.scrollY;
   const activeDestination = state.activeDestination;
   const activeBounds = state.bounds
     ? DISPLAY_SOURCES.map((source) => renderTransitionRow(source, activeDestination)).join('')
@@ -288,7 +299,7 @@ function render() {
           </section>` : `
           <section class="loading-panel">
             <div class="loading-mark"><span></span><span></span><span></span></div>
-            <div><h2>Calculando os votos transferidos</h2><p>O CP-SAT está verificando os dois extremos das 20 transferências.</p></div>
+            <div><h2>Calculando os votos transferidos</h2><p>Verificando os valores possíveis para as 20 transferências.</p></div>
           </section>`}
       </main>
       <footer><span>Os cálculos são feitos localmente em WebAssembly.</span><a href="mailto:interactiveviz@proton.me">interactiveviz@proton.me</a></footer>
@@ -296,7 +307,16 @@ function render() {
 
   attachHandlers();
   renderActiveSankey();
-  requestAnimationFrame(positionDefaultExplanation);
+  requestAnimationFrame(() => {
+    positionDefaultExplanation();
+    if (preserveView.slider) {
+      const { source, destination, endpoint } = preserveView.slider;
+      document.querySelector(
+        `.dual-slider input[data-source="${source}"][data-destination="${destination}"][data-endpoint="${endpoint}"]`,
+      )?.focus({ preventScroll: true });
+    }
+    window.scrollTo(0, scrollY);
+  });
 }
 
 async function renderActiveSankey() {
@@ -431,7 +451,7 @@ async function restartWithDefaults() {
 
   state.constraintNotice = '';
   state.busy = true;
-  state.message = 'Aplicando os mínimos padrão de 80%...';
+  state.message = 'Aplicando valores iniciais...';
   state.messageType = 'working';
   state.progress = 0;
   state.progressTotal = 40;
@@ -446,7 +466,7 @@ async function restartWithDefaults() {
       state.bounds = bounds;
       state.manualLimits = defaultLimits;
       state.defaultNoteDismissed = false;
-      state.message = 'Valores padrão aplicados aos mínimos de Flávio Bolsonaro, Lula, Abstenções e Brancos/Nulos.';
+      state.message = 'Valores iniciais aplicados.';
       state.messageType = 'ready';
     }
   } catch (error) {
@@ -461,6 +481,10 @@ async function restartWithDefaults() {
 async function commitLimit(event) {
   const input = event.currentTarget;
   const { source, destination, endpoint } = input.dataset;
+  const preserveView = {
+    scrollY: window.scrollY,
+    slider: { source, destination, endpoint },
+  };
   const value = Number(input.value);
   const key = transitionKey(source, destination, endpoint);
   const otherEndpoint = endpoint === 'min' ? 'max' : 'min';
@@ -478,7 +502,7 @@ async function commitLimit(event) {
   if ((endpoint === 'min' && value > otherValue) || (endpoint === 'max' && value < otherValue)) {
     state.constraintNotice = 'O mínimo não pode superar o máximo. A alteração foi desfeita.';
     state.messageType = 'ready';
-    render();
+    render(preserveView);
     return;
   }
 
@@ -488,7 +512,7 @@ async function commitLimit(event) {
   state.messageType = 'working';
   state.progress = 0;
   state.progressTotal = 40;
-  render();
+  render(preserveView);
 
   try {
     const nextBounds = Object.keys(nextLimits).length
@@ -509,7 +533,7 @@ async function commitLimit(event) {
     state.messageType = 'error';
   } finally {
     state.busy = false;
-    render();
+    render(preserveView);
   }
 }
 
@@ -568,13 +592,13 @@ async function start() {
     state.baseBounds = baseBounds;
 
     const bounds = await solveBounds(state.manualLimits, (done, total) => {
-      state.message = 'Aplicando os mínimos padrão de 80%...';
+      state.message = 'Aplicando valores iniciais...';
       state.messageType = 'working';
       setProgress(total + done, total * 2);
     });
     if (!bounds) throw new Error('Os valores padrão são inviáveis.');
     state.bounds = bounds;
-    state.message = 'CP-SAT em WebAssembly pronto. Os mínimos padrão estão aplicados.';
+    state.message = 'A simulação está pronta com os valores iniciais.';
     state.messageType = 'ready';
   } catch (error) {
     state.message = `Não foi possível iniciar o solucionador: ${error.message}`;
