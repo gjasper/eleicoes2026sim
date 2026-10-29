@@ -261,7 +261,7 @@ function render(preserveView = {}) {
         <section class="intro">
           <div class="intro-copy">
             <div class="eyebrow"><span>01</span> Simulador de transferência de votos</div>
-            <h1>Brasil - Eleição presencial 2026</h1>
+            <h1>Brasil - Eleição presidencial 2026</h1>
             <p>Explore as possibilidades de transferência entre 1º turno e 2º turno. Limites possíveis são computados automaticamente. Soluções exatas podem ser geradas respeitando os intervalos.</p>
           </div>
           ${renderStatus()}
